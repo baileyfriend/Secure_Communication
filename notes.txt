@@ -1,0 +1,24 @@
+Project 4
+	server and client
+by the end all messages should be encrypted 
+
+PART ONE
+	just setting up the chat messages
+	server needs to do multiple clients at the same time
+	server should print list of all other clients
+	Administrative commands - kick clients off if they do something bad
+	Any thing the server can do the client should get a message that is connected with that
+		-can be terminal
+***TIPS***************************
+	DIFFERENCE with threads - these threads might access the same data structures
+		SO one thread might modify and the other thread is trying to access
+		JAVA make syncronized blocks - on the same object.
+			-Hash Maps have problems with this
+			ConcurrentHashMap pretty much the same but WITHOUT the problem (99% replacement - doesn't like null)
+			-there is also a arraylist version of this -maybe for the list of clients that are on
+				-List list = Collections.synchronizedList(new ArrayList());
+			-the collections classes have this issue but there are always solutions to the problems
+			
+*****ideas****
+have mapped to a name/num so a client can send to a name instead of the ip address
+
