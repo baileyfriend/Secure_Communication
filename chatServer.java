@@ -97,6 +97,7 @@ class TcpServerThread extends Thread{
 
 			//Send the list of the connected clients whenever a new client connects
 			ByteBuffer listOfConnectedClients = getListOfConnectedClients();
+			System.out.println("These are the connected clients' names: " + listOfConnectedClients);
 			sourceSocketChannel.write( listOfConnectedClients );
 			System.out.println("Sent client list");
 
