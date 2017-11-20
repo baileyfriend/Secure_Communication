@@ -4,10 +4,10 @@ CIS 457-20
 Lab Project 4  - Client
 -------------Part One---------------------
  Multiple client connections	          10 -- DONE
-  Broadcast message (to all clients)	  15 @TODO
+  Broadcast message (to all clients)	  15 -- DONE
   Individual message	                  10 -- DONE
   Client list	                          5 -- DONE
- Admin functions	                      5 @TODO
+ Admin functions	                      5 -- DONE
 ******************************************/
 
 import java.io.*;
@@ -98,9 +98,10 @@ class chatClient{
 		String listOfConnectedClientsStr = readBufferIntoString(listOfConnectedClientsBuf);
 		System.out.println("Here are the clients that are connected to the server: " + listOfConnectedClientsStr);
 
+		String kickUserString = "123456789GOODBYE987654321";
 	  while(true){ // Send/recieve messages loop
 		// Send Message
-		String destination = cons.readLine("Who do you want to message: "); //The other clients who can be messaged have names like 0, 1, 2, 3, etc. 
+		String destination = cons.readLine("Who do you want to message (Enter client number or all) : "); //The other clients who can be messaged have names like 0, 1, 2, 3, etc. 
 		String message  = cons.readLine("Message: ");
 		String messageToServer = destination + "|" + message; // Will split the message on "|" on server side
 		ByteBuffer sendBuf = ByteBuffer.wrap(messageToServer.getBytes());
@@ -111,7 +112,13 @@ class chatClient{
 		ByteBuffer messageFromServer = ByteBuffer.allocate(10000);
 		sc.read(messageFromServer);
 		String receivedMessage = readBufferIntoString(messageFromServer);
-		System.out.println("Got message: " + receivedMessage );
+		
+		if( receivedMessage.equals(kickUserString) ){
+			System.out.println("YOU ARE BEING KICKED - GOODBYE");
+			System.exit(0);
+		}else{
+			System.out.println("Got message: " + receivedMessage );
+		}
 		}
       	}catch(IOException e){
       	    System.out.println("Got an exception: " + e);

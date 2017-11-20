@@ -4,10 +4,10 @@ CIS 457-20
 Lab Project 4 - Server
 -------------Part One---------------------
  Multiple client connections	          10 -- DONE
-  Broadcast message (to all clients)	  15
+  Broadcast message (to all clients)	  15 -- DONE
   Individual message	                  10 -- DONE
   Client list	                          5 -- DONE
- Admin functions	                      5
+ Admin functions	                      5 -- DONE
 ******************************************/  
 
 import java.io.*;
@@ -44,7 +44,41 @@ class chatServer{
 	public static int getDestination(String msg){
 		String [] splitMsg = msg.split("\\|");
 		String destStr = splitMsg[0];
-		return Integer.parseInt(destStr);
+		String message = splitMsg[1];
+		if(destStr.toLowerCase().equals("all")){
+			sendToAll(message);
+			return -1;
+		} else if(destStr.toLowerCase().contains("kick")){
+			int userToKick = Integer.parseInt( Character.toString(destStr.charAt(4)) );
+			kickUser(userToKick);
+			return -1;
+		} else {
+			return Integer.parseInt(destStr);
+		}
+	}
+
+	public static void sendToAll(String msg){
+		for(ConcurrentHashMap.Entry<Integer, SocketChannel> entry: clientMap.entrySet()){
+			SocketChannel channel = entry.getValue();
+			try{
+				channel.write(ByteBuffer.wrap(msg.getBytes()));
+			} catch(Exception exception){
+				System.out.println("Caught error while sending message to all: " + exception);
+			}
+			
+		}
+	}
+
+	public static void kickUser(int user){
+		SocketChannel channel = clientMap.get(user);
+		String kickUserString = "123456789GOODBYE987654321";
+		try{
+			channel.write(ByteBuffer.wrap(kickUserString.getBytes()));
+		} catch(Exception exception){
+			System.out.println("Caught error while sending message to all: " + exception);
+		}
+		clientMap.remove(user);
+		return;
 	}
 
 	public static ByteBuffer getMessage(String msg){
@@ -55,6 +89,7 @@ class chatServer{
 
 	public ByteBuffer getListOfConnectedClients(){
 		Set<Integer> setOfClients = clientMap.keySet();
+		System.out.println("These are the connected clients' names: " + setOfClients.toString());
 		return ByteBuffer.wrap(setOfClients.toString().getBytes());
 	}
 
@@ -72,7 +107,7 @@ class chatServer{
 			   		SocketChannel sc = c.accept(); // get new channel for each new client that connects to our server
 					server.putIntoClientMap(clientNum, sc); //number of the client mapped with the socket channel.
 					System.out.println("Put client " + clientNum + " into map " + clientMap.toString());
-					TcpServerThread t = server.new TcpServerThread(sc);
+					ChatServerThread t = server.new ChatServerThread(sc);
 					//TODO: a list of threads - soccet channels to keep track of clients
 					//TODO: print a list of available clients
 					clientNum++;
@@ -86,9 +121,9 @@ class chatServer{
 }
  
 
-class TcpServerThread extends Thread{
+class ChatServerThread extends Thread{
 	SocketChannel sourceSocketChannel;
-	TcpServerThread(SocketChannel channel){
+	ChatServerThread(SocketChannel channel){
 	    sourceSocketChannel = channel;
 	}
 	public void run(){ //acts as the main method for the new thread
@@ -97,7 +132,6 @@ class TcpServerThread extends Thread{
 
 			//Send the list of the connected clients whenever a new client connects
 			ByteBuffer listOfConnectedClients = getListOfConnectedClients();
-			System.out.println("These are the connected clients' names: " + listOfConnectedClients);
 			sourceSocketChannel.write( listOfConnectedClients );
 			System.out.println("Sent client list");
 
@@ -109,17 +143,19 @@ class TcpServerThread extends Thread{
 
 			// Get the destination from the message
 			int destinationInt = getDestination(msgFromClient);
-			System.out.println("Successfully got the destination from the message - sending to: " + destinationInt);
+			if(destinationInt != -1){ // -1 means that there was not a specific destination
+				System.out.println("Successfully got the destination from the message - sending to: " + destinationInt);
 
-			// Instantiate the connection to the destination - use clientMap to do this
-			SocketChannel destinationSocketChannel = getFromClientMap(destinationInt);
-			
-			// Get the actual message to be sent to the destination
-			ByteBuffer msgToSend = getMessage(msgFromClient);
-			System.out.println("Sending message to client: "  + msgToSend);
+				// Instantiate the connection to the destination - use clientMap to do this
+				SocketChannel destinationSocketChannel = getFromClientMap(destinationInt);
+				
+				// Get the actual message to be sent to the destination
+				ByteBuffer msgToSend = getMessage(msgFromClient);
+				System.out.println("Sending message to client: "  + msgToSend);
 
-			// Send the message to the destination
-			destinationSocketChannel.write(msgToSend);
+				// Send the message to the destination
+				destinationSocketChannel.write(msgToSend);
+			}
 		
 	    }catch(IOException e){
 			System.out.println("Got an Exception: " + e);
