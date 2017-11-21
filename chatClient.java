@@ -28,7 +28,7 @@ class chatClient{
         Checks if valid ip
         @return True if string is a valid ip, else false
       */
-      public static boolean isValidIP(String ip){
+      public boolean isValidIP(String ip){
       	try{
       	    if(ip == null || ip.isEmpty()){
       			return false;
@@ -71,8 +71,8 @@ class chatClient{
       	    Console cons = System.console();
 
       	    String ipStr = "127.0.0.1"; // Default ip address
-			/** @TODO uncomment this section - commented for testing
-			 * boolean valid = false;
+			// @TODO uncomment this section - commented for testing
+			boolean valid = false;
 			  while(valid == false){ 
           		ipStr = cons.readLine("Enter target IP address: ");
               valid = client.isValidIP(ipStr.trim());
@@ -83,7 +83,6 @@ class chatClient{
           		    valid = true;
           		}
 			  }
-			  */
 
 			  int portInt=9876; //declaring portInt so the code works
 			  
