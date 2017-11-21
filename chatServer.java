@@ -70,12 +70,13 @@ class chatServer{
 	}
 
 	public static void kickUser(int user){
+		System.out.println("Kicking user: " + user);
 		SocketChannel channel = clientMap.get(user);
 		String kickUserString = "123456789GOODBYE987654321";
 		try{
 			channel.write(ByteBuffer.wrap(kickUserString.getBytes()));
 		} catch(Exception exception){
-			System.out.println("Caught error while sending message to all: " + exception);
+			System.out.println("Caught error while kicking user: " + exception);
 		}
 		clientMap.remove(user);
 		return;

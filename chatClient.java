@@ -15,6 +15,7 @@ import java.net.*;
 import java.nio.*;
 import java.nio.channels.*;
 import java.nio.file.Paths;
+import java.util.Objects;
 import java.lang.Math.*;
 
 
@@ -112,7 +113,7 @@ class chatClient{
 		sc.read(messageFromServer);
 		String receivedMessage = readBufferIntoString(messageFromServer);
 		
-		if( receivedMessage.equals(kickUserString) ){
+		if( receivedMessage.equals(kickUserString) || receivedMessage.contains(kickUserString) || Objects.equals(receivedMessage, kickUserString)){
 			System.out.println("YOU ARE BEING KICKED - GOODBYE");
 			System.exit(0);
 		}else{
