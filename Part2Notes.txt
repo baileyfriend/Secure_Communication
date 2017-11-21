@@ -1,0 +1,49 @@
+LONG TIME AGO
+talked about: 
+	Symetric- efficent can do a large amount, can do both directions
+			  downside: getting the same symetric key
+	Asymetric- uses different information for incrypting and decrypting
+			can't derive the decryption key from the incryption key. 
+			   Downside: the key only works in one direction
+SO
+	give the SERVER the private key 
+	give the CLIENT the public key
+*The program does not have to generate keys - JUST read them in
+	FOR JAVA run the given code for keys - all in order
+		1- makes the private key, using RSA
+		2- takes the private key and makes a public key that corrosponds to it NEEDS TO BE AFTER NUMBER 1 
+			because this is made off of the private key
+		3- changing the file format
+		4- changing the file format
+	so here now we have the Asymetric keys
+	BUT we want keys we can use for two way communication....
+WE NEED A NEW KEY.... have the client make it up
+ CLIENT:
+ 	1- Generate a symmetric key Ks3
+ 	2- Encrypt Ks3 with KEYpublic
+ 		send to server
+ 	3- Server decrypts (D(Ks3)(E(KEYpublic(Ks3))) ) -> Ks3
+ EACH CLIENT DOES THIS PROCESS!!! 
+ 
+ Using a trust the server method.
+ A message between client 4 and client one? The server needs to decrypt the message from client 4 before sending it to 
+ 	client 1
+ 	
+ SYMETRIC uses three inputs 
+ 	- Key 
+ 	- Message
+ 	- Initialization Vector = used so each message looks differnt, they are not secret but are differnt for every message
+ 	
+ 	SOOOOO FOR EVERY MESSAGE! need to generate a new Initialization Vector!
+ Sending process:
+ 	1- client makes a IV
+ 	2- client encrypts the message and the IV = q
+ 	3- send(q,IV)
+ 	4- server decrypts 
+ 	
+ PROVIDED CODE: shows how to encrypt and decrypt - allowed to straight up copy given code
+ 	RSA encrypt/decrypt - asymetric with private key Can copy 
+ 	encrypt/decrypt - uses symmetric key 
+ 	
+ 	
+ 	
