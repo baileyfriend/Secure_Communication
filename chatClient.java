@@ -20,6 +20,7 @@ import java.lang.Math.*;
 
 
 class chatClient{
+	public String kickUserString = "123456789GOODBYE987654321";
 
       public chatClient(){}
       
@@ -87,42 +88,85 @@ class chatClient{
 
 			  int portInt=9876; //declaring portInt so the code works
 			  
-		System.out.println("Now using port number "+portInt); //end of checking port number
-		InetSocketAddress insa = new InetSocketAddress(ipStr, portInt);
-		SocketChannel sc = SocketChannel.open();
-		sc.connect(insa);
+			System.out.println("Now using port number "+portInt); //end of checking port number
+			InetSocketAddress insa = new InetSocketAddress(ipStr, portInt);
+			SocketChannel sc = SocketChannel.open();
+			sc.connect(insa);
 
-
-		ByteBuffer listOfConnectedClientsBuf = ByteBuffer.allocate(1000);
-		sc.read(listOfConnectedClientsBuf);
-		String listOfConnectedClientsStr = readBufferIntoString(listOfConnectedClientsBuf);
-		System.out.println("Here are the clients that are connected to the server: " + listOfConnectedClientsStr);
-
-		String kickUserString = "123456789GOODBYE987654321";
-	  while(true){ // Send/recieve messages loop
-		// Send Message
-		String destination = cons.readLine("Who do you want to message (Enter client number or all) : "); //The other clients who can be messaged have names like 0, 1, 2, 3, etc. 
-		String message  = cons.readLine("Message: ");
-		String messageToServer = destination + "|" + message; // Will split the message on "|" on server side
-		ByteBuffer sendBuf = ByteBuffer.wrap(messageToServer.getBytes());
-		sc.write(sendBuf); // send the buffer with the destination and the message
-
-		// Recieve Message
-		System.out.println("Waiting to recieve message");
-		ByteBuffer messageFromServer = ByteBuffer.allocate(10000);
-		sc.read(messageFromServer);
-		String receivedMessage = readBufferIntoString(messageFromServer);
-		
-		if( receivedMessage.equals(kickUserString) || receivedMessage.contains(kickUserString) || Objects.equals(receivedMessage, kickUserString)){
-			System.out.println("YOU ARE BEING KICKED - GOODBYE");
-			System.exit(0);
-		}else{
-			System.out.println("Got message: " + receivedMessage );
-		}
-		}
+			ChatClientRecieveThread receiveThread = client.new ChatClientRecieveThread(sc);
+			ChatClientSendThread sendThread = client.new ChatClientSendThread(sc);
+			
+			ByteBuffer listOfConnectedClientsBuf = ByteBuffer.allocate(1000);
+			sc.read(listOfConnectedClientsBuf);
+			String listOfConnectedClientsStr = readBufferIntoString(listOfConnectedClientsBuf);
+			System.out.println("Here are the clients that are connected to the server: " + listOfConnectedClientsStr);
+			receiveThread.start();
+			sendThread.start();
+			
+			// while(true){ // Send/recieve messages loop
+			// 	// Send Message
+			// 	String destination = cons.readLine("Who do you want to message (Enter client number or all) : "); //The other clients who can be messaged have names like 0, 1, 2, 3, etc. 
+			// 	String message  = cons.readLine("Message: ");
+			// 	String messageToServer = destination + "|" + message; // Will split the message on "|" on server side
+			// 	ByteBuffer sendBuf = ByteBuffer.wrap(messageToServer.getBytes());
+			// 	sc.write(sendBuf); // send the buffer with the destination and the message
+			// 	}
       	}catch(IOException e){
       	    System.out.println("Got an exception: " + e);
       	}
           }
+
+
+		  class ChatClientRecieveThread extends Thread{
+			SocketChannel sc;
+			ChatClientRecieveThread(SocketChannel channel){
+				sc = channel;
+			}
+			public void run(){
+			
+			while(true){
+				try{
+					System.out.println("Go back to what you were doing...");
+					// Recieve Message
+					ByteBuffer messageFromServer = ByteBuffer.allocate(10000);
+					sc.read(messageFromServer);
+					String receivedMessage = readBufferIntoString(messageFromServer);
+					
+					if( receivedMessage.equals(kickUserString) || receivedMessage.contains(kickUserString) || Objects.equals(receivedMessage, kickUserString)){
+						System.out.println("\n YOU ARE BEING KICKED - GOODBYE");
+						System.exit(-1); // Have to exit with code -1 so that it kills the whole 
+					}else{
+						System.out.println("\n Got message: " + receivedMessage );
+					}
+				} catch(Exception e){
+					System.out.println("Got error while trying to recieve message: "  + e);
+				}
+				
+			}
+			}		
+		}
+
+		class ChatClientSendThread extends Thread{
+			SocketChannel sc;
+			ChatClientSendThread(SocketChannel channel){
+				sc = channel;
+			}
+			public void run(){
+				try{
+					Console cons = System.console();
+					while(true){ // Send/recieve messages loop
+						// Send Message
+						String destination = cons.readLine("\n Who do you want to message (Enter client number or all): "); //The other clients who can be messaged have names like 0, 1, 2, 3, etc. 
+						String message  = cons.readLine("\n Message: ");
+						String messageToServer = destination + "|" + message; // Will split the message on "|" on server side
+						ByteBuffer sendBuf = ByteBuffer.wrap(messageToServer.getBytes());
+						sc.write(sendBuf); // send the buffer with the destination and the message
+						}
+				} catch(Exception e){
+					System.out.println("Got error while trying to recieve message: "  + e);
+				}
+				
+			}
+			}
 
 }
