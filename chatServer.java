@@ -9,9 +9,9 @@ Lab Project 4 - Server
   Client list	                          5 -- DONE
  Admin functions	                      5 -- DONE
 -------------Part Two---------------------
-Randomly generate symmetric key	            5
-Encrypt symmetric key with RSA pub key	    10
-Decrypt symmetric key with RSA private key  10
+Randomly generate symmetric key	            5 -- DONE
+Encrypt symmetric key with RSA pub key	    10 -- DONE
+Decrypt symmetric key with RSA private key  10 -- DONE
 Properly encrypting all chat messages	    10
 Properly decrypting all chat messages  	    10
 
@@ -49,6 +49,15 @@ class chatServer{
 		privKey=null;
 		pubKey=null;
 	}
+
+	public PrivateKey getPrivKey(){
+		return this.privKey;
+	}
+
+	public PublicKey getPublicKey(){
+		return this.pubKey;
+	}
+
 	//Code provided in documentation
 	public void setPrivateKey(String filename){
 		try{
@@ -116,17 +125,43 @@ class chatServer{
 			byte[] plaintext=c.doFinal(ciphertext);
 			return plaintext;
 		}catch(Exception e){
-			System.out.println("RSA Decrypt Exception");
+			System.out.println("RSA Decrypt Exception: " + e);
 			System.exit(1);
 			return null;
 		}
-    }
+	}
+	
+	// public byte[] removeEmptyFromArray(byte[] arr){
+	// 	int size = 0;
+	// 	byte b;
+	// 	for (int i = 0; i < arr.length; i++){
+	// 		b = arr[i];
+	// 		//arr[i] = if(!arr[i].trim().equals("") || arr[i]!=null)arr[i].trim();
+	// 		if(b.byteValue() != null || valueOf(arr[i]) != "" ){
+	// 			size++;
+	// 		}
+	// 	}
+	// 	byte[] result = new byte[size];
+	// 	for (int j = 0; j < result.length; j++){
+	// 		result[j] = arr[j];
+	// 	}
+
+	// 	return result;
+	// }
+
     //Code provided in documentation
     public byte[] decrypt(byte[] ciphertext, SecretKey secKey, IvParameterSpec iv){
 		try{
+			//ciphertext = removeEmptyFromArray(ciphertext);
+			System.out.println("Symmetric key is: " + Base64.getEncoder().encodeToString( secKey.getEncoded() ) );
+			System.out.printf("CipherText: %s%n",DatatypeConverter.printHexBinary(ciphertext) + '\n'); //coded message to be sent
+			System.out.println("here0, ciphertext is this big: " + ciphertext.length);
 			Cipher c = Cipher.getInstance("AES/CBC/PKCS5Padding");
+			System.out.println("here1");
 			c.init(Cipher.DECRYPT_MODE,secKey,iv);
+			System.out.println("here2");
 			byte[] plaintext = c.doFinal(ciphertext);
+			System.out.println("here3");
 			return plaintext;
 		}catch(Exception e){
 			System.out.println("AES Decrypt Exception " + e);
@@ -265,11 +300,26 @@ class chatServer{
 		return setOfClients.toString();	
 	}
 
+	public byte[] getCorrectSizeCiphertext(ByteBuffer buf){
+		int size = buf.position();
+		buf.flip();
+		byte[] result = new byte[size];
+		for(int i = 0; i<size; i++){
+			System.out.println("the size is: " + size);
+			result[i] = buf.get(i);
+		}
+		return result;
+	}
+
     public static void main(String args[]){
 		chatServer server = new chatServer();
 		
 		server.setPrivateKey("RSApriv.der"); //making the private key using RSA
+		PrivateKey thisPrivKey = server.getPrivKey();
+		System.out.println("THE PRIVATE KEY: " + Base64.getEncoder().encodeToString( thisPrivKey.getEncoded() ));
 		server.setPublicKey("RSApub.der");   //making the public key based on the private key
+		PublicKey thisPubKey = server.getPublicKey();
+		System.out.println("THE public KEY: " + Base64.getEncoder().encodeToString( thisPubKey.getEncoded() ));
 		
 		// SecretKey s = server.generateAESKey();
 		// byte encryptedsecret[] = server.RSAEncrypt(s.getEncoded());
@@ -331,10 +381,9 @@ class ChatServerThread extends Thread{
 			sourceSocketChannel.write(pubKeyBuf);
 			System.out.println("Sent public key to client");
 
-			ByteBuffer symKeyBuf = ByteBuffer.allocate(16);
+			ByteBuffer symKeyBuf = ByteBuffer.allocate(256);
 			System.out.println("Waiting to recieve symmetric key from client");
 			sourceSocketChannel.read(symKeyBuf);
-			System.out.println("recieved symmetric key from client");
 
 			//Send the list of the connected clients whenever a new client connects
 			ByteBuffer listOfConnectedClients = getListOfConnectedClients();
@@ -342,11 +391,27 @@ class ChatServerThread extends Thread{
 			System.out.println("Sent client list");
 
 			
+			// ------------------
+			// SecretKey s = server.generateAESKey();
+			
+			// SecureRandom r = new SecureRandom();
+			// byte ivbytes[] = new byte[16];
+			// r.nextBytes(ivbytes);
+			// IvParameterSpec iv = new IvParameterSpec(ivbytes);
+			
+			// String plaintext = "This is a test string to encrypt";
+			// byte ciphertext[] = server.encrypt(plaintext.getBytes(),s,iv);
+			
+			// System.out.printf("CipherText: %s%n",DatatypeConverter.printHexBinary(ciphertext));
+			
+			//byte decryptedplaintext[] = server.decrypt(ciphertext,ds,iv);
+
+			// ----------------------
+
 
 			//SecretKey symKey = readBufferIntoPrivKey(symKeyBuf);
-			SecretKey symKey = new SecretKeySpec(symKeyBuf.array(), 0, symKeyBuf.array().length, "AES");
-			System.out.println("Symmetric key is: " + Base64.getEncoder().encodeToString( symKey.getEncoded() ) );
-			putIntoKeystMap(clientNum, symKey);
+			//SecretKey symKey = new SecretKeySpec(RSADecrypt(symKeyBuf.array()), 0, symKeyBuf.array().length, "AES");
+			
 			
 			//byte [] pkey = pubKey.getEncoded();
 			//TODO how to turn the public key into a byte buffer??
@@ -356,7 +421,14 @@ class ChatServerThread extends Thread{
 			
 			//ByteBuffer encryptedKey = ByteBuffer.allocate(10000);
 			//TODO decrypt this buffer with the private key to get the secret/symetric key
+			symKeyBuf.flip();
+			byte encryptedsecret[] = symKeyBuf.array();
+			System.out.println("Encrypted Secret: " + encryptedsecret.toString());
+			byte decryptedsecret[] = RSADecrypt(encryptedsecret);
 			
+			SecretKey ds = new SecretKeySpec(decryptedsecret,"AES");
+			System.out.println("Symmetric key from client is: " + Base64.getEncoder().encodeToString( ds.getEncoded() ) );
+			putIntoKeystMap(clientNum, ds);
 			System.out.println("___________________");
 			while(true){
 				// Read message from client
@@ -364,19 +436,20 @@ class ChatServerThread extends Thread{
 				//ByteBuffer buffArr = ByteBuffer.allocate(10000);
 				sourceSocketChannel.read(ivbytes);
 				IvParameterSpec iv = new IvParameterSpec(ivbytes.array());
-				System.out.println("Iv recieved from client: " + iv.toString());
+				System.out.println("Iv recieved from client: " + iv.toString() + "Of size " + iv.getIV().length );
 
 				ByteBuffer buffer = ByteBuffer.allocate(10000);
 				sourceSocketChannel.read(buffer);
-				byte ciphertext[] = buffer.array();
+				System.out.println("At position: " + buffer.position());
+				
+				byte ciphertext[] = getCorrectSizeCiphertext(buffer);
+				System.out.println("Length of message: " + ciphertext.length);
 				// Decrypt
-				// byte decryptedsecret[] = RSADecrypt(encryptedsecret); //decrypt the asymetric key
-				SecretKey ds = getFromKeyMap(clientNum);
 				byte decryptedplaintext[] = decrypt(ciphertext,ds,iv); //decrypt the symetric key
-				String dpt = new String(decryptedplaintext); // the final message
-				System.out.printf("PlainText: %s%n",dpt);
+				String msgFromClient = new String(decryptedplaintext); // the final message
+				System.out.printf("PlainText: %s%n",msgFromClient);
 
-				String msgFromClient = readBufferIntoString(buffer);
+				//String msgFromClient = readBufferIntoString(buffer);
 				System.out.println("Got message from client: " + msgFromClient);
 
 				// Get the destination from the message

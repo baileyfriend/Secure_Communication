@@ -29,7 +29,8 @@ import javax.crypto.spec.*;
 import java.security.*;
 import java.security.spec.*;
 import javax.xml.bind.DatatypeConverter;
-// import java.util.ArrayList;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Base64;
 
 
@@ -50,6 +51,17 @@ class chatClient{
 		System.out.println("Symmetric key is: " + Base64.getEncoder().encodeToString( this.symKey.getEncoded() ) );
 		return this.symKey;
 	}
+
+	public void setPubKey(PublicKey pubKey){
+		this.pubKey = pubKey;
+	}
+
+	public PublicKey getPubKey(){
+		//System.out.println("The public key is: " + Base64.getEncoder().encodeToString( this.pubKey.getEncoded() ) );
+		return this.pubKey;
+	}
+
+
 	//Code provided in documentation
 	public SecretKey generateAESKey(){
 		try{
@@ -66,12 +78,14 @@ class chatClient{
     //Code provided in documentation
     public byte[] RSAEncrypt(byte[] plaintext){ //needed to encrypt with the public key, the new secret key
 		try{
+			System.out.println("length of sym key in rsadecrpyt: " + plaintext.length);
 			Cipher c = Cipher.getInstance("RSA/ECB/OAEPWithSHA-1AndMGF1Padding");
-			c.init(Cipher.ENCRYPT_MODE,pubKey);
+			c.init(Cipher.ENCRYPT_MODE,getPubKey());
 			byte[] ciphertext=c.doFinal(plaintext);
+			System.out.printf("CipherText: " + ciphertext.length);
 			return ciphertext;
 		}catch(Exception e){
-			System.out.println("RSA Encrypt Exception");
+			System.out.println("RSA Encrypt Exception: " + e);
 			System.exit(1);
 			return null;
 		}
@@ -151,19 +165,19 @@ public static String readBufferIntoString(ByteBuffer buf){
 		}
 	}
 
-	public List<Object> generateIV(){
-		SecureRandom r = new SecureRandom();
-		byte ivbytes[] = new byte[16];
-		r.nextBytes(ivbytes);
-		IvParameterSpec iv = new IvParameterSpec(ivbytes);
-		Object[] result = new Object[2];
-		List<Object> arr = new ArrayList <Object>();
-		arr.add(iv);
-		arr.add(ivbytes);
-		// result[0] = iv;
-		// result[1] = ivbytes;
-		return arr;
-	}
+	// public List<Object> generateIV(){
+	// 	SecureRandom r = new SecureRandom();
+	// 	byte ivbytes[] = new byte[16];
+	// 	r.nextBytes(ivbytes);
+	// 	IvParameterSpec iv = new IvParameterSpec(ivbytes);
+	// 	Object[] result = new Object[2];
+	// 	// List<Object> arr = new ArrayList <Object>();
+	// 	arr.add(iv);
+	// 	arr.add(ivbytes);
+	// 	// result[0] = iv;
+	// 	// result[1] = ivbytes;
+	// 	return arr;
+	// }
 
       public static void main(String args[]){
       	chatClient client = new chatClient();
@@ -195,12 +209,18 @@ public static String readBufferIntoString(ByteBuffer buf){
 			ChatClientRecieveThread receiveThread = client.new ChatClientRecieveThread(sc);
 			ChatClientSendThread sendThread = client.new ChatClientSendThread(sc);
 			
-			ByteBuffer publicKey = ByteBuffer.allocate(10000);
-			sc.read(publicKey);
+			ByteBuffer publicKeyBuf = ByteBuffer.allocate(10000);
+			sc.read(publicKeyBuf);
 			System.out.println("Client has the public key."); //TODO fix this sending on the server side
+			PublicKey pubKey = readBufferIntoPubKey(publicKeyBuf);
+			client.setPubKey(pubKey);
+			System.out.println("The public key is: " + Base64.getEncoder().encodeToString( client.pubKey.getEncoded() ) );
 
-			System.out.println("Sending symmetric key of length: " + client.getSymKey().getEncoded().length );
-			sc.write( ByteBuffer.wrap( client.getSymKey().getEncoded()) );
+			SecretKey theSymKey = client.getSymKey();
+			System.out.println("Sending symmetric key of length: " + theSymKey.getEncoded().length );
+			byte encryptedSymKey[] = client.RSAEncrypt(theSymKey.getEncoded());
+			//System.out.println("Encrypted Secret: " + Arrays.toString(encryptedSymKey));
+			sc.write( ByteBuffer.wrap(encryptedSymKey) );
 
 			//print the starting list
 			ByteBuffer listOfConnectedClientsBuf = ByteBuffer.allocate(1000);
@@ -234,17 +254,6 @@ public static String readBufferIntoString(ByteBuffer buf){
 			sendThread.start(); //eachtime something is sent it goes through a process
 			receiveThread.start(); 
 			
-			
-			// while(true){ // Send/recieve messages loop
-			// 	// Send Message
-			// 	String destination = cons.readLine("Who do you want to message (Enter client number or all) : "); 
-			// The other clients who can be messaged have names like 0, 1, 2, 3, etc. 
-			// 	String message  = cons.readLine("Message: ");
-			// 	String messageToServer = destination + "|" + message; // Will split the message on "|" on server side
-			// 	ByteBuffer sendBuf = ByteBuffer.wrap(messageToServer.getBytes());
-			// 	sc.write(sendBuf); // send the buffer with the destination and the message
-			// 	}
-			
       	}catch(IOException e){
       	    System.out.println("Got an exception: " + e);
       	}
@@ -273,7 +282,7 @@ public static String readBufferIntoString(ByteBuffer buf){
 							sc.close();
 							System.exit(-1); // Have to exit with code -1 so that it kills the whole 
 					}else{
-							System.out.println("\n ****Got message****: " + receivedMessage );
+							//System.out.println("\n ****Got message****: " + receivedMessage );
 						}
 				} catch(Exception e){
 						System.out.println("Got error while trying to recieve message: "  + e);
@@ -309,7 +318,7 @@ public static String readBufferIntoString(ByteBuffer buf){
 					//The other clients who can be messaged have names like 0, 1, 2, 3, etc. 
 					String message  = cons.readLine("\n Message: ");
 					String messageToServerPlainText = destination + "|" + message; // Will split the message on "|" on server side
-					
+					System.out.println("Length of message: " + messageToServerPlainText.length());
 					// Generate IV
 					SecureRandom r = new SecureRandom();
 					byte ivbytes[] = new byte[16];
@@ -319,10 +328,15 @@ public static String readBufferIntoString(ByteBuffer buf){
 					System.out.println("Iv from client: " + iv.toString());
 
 					byte ciphertext[] = encrypt(messageToServerPlainText.getBytes(),thisSymKey,iv);
-
+					System.out.printf("CipherText: %s%n",DatatypeConverter.printHexBinary(ciphertext)+ '\n'); //coded message to be sent
 					// send the ciphertext and the IV in a bytebuffer - make a method to make the bytebuffer
-					ByteBuffer ivBuffer = ByteBuffer.wrap(ivbytes);
-					ByteBuffer cipherBuffer = ByteBuffer.wrap(ciphertext);
+					System.out.println("ZIS ES ZE ZIZE OF ZE IV: " + iv.getIV().length);
+					ByteBuffer ivBuffer = ByteBuffer.wrap(iv.getIV());
+					System.out.println("siiiiiiiiiize of the ciphertext!: " + ciphertext.length);
+					ByteBuffer cipherBuffer = ByteBuffer.allocate(10000);
+					//cipherBuffer = cipherBuffer.put(ciphertext);
+					cipherBuffer = ByteBuffer.wrap(ciphertext);
+					System.out.println("siiiiiiiiiize of the cipherbuffer!: " + cipherBuffer.array().length);
 
 					sc.write(ivBuffer); // send the buffer with the destination and the message
 					sc.write(cipherBuffer);
