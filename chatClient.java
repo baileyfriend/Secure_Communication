@@ -297,7 +297,7 @@ public static String readBufferIntoString(ByteBuffer buf){
 			
 			while(true){
 				try{
-					// System.out.println("\t Who do you want to message (Enter client number or all):");
+					System.out.println("\t Who do you want to message (Enter client number or all):");
 					// going back to what they were doing
 					// Recieve Message
 					ByteBuffer buffer = ByteBuffer.allocate(10000);
@@ -371,7 +371,6 @@ public static String readBufferIntoString(ByteBuffer buf){
 					byte ciphertext[] = encrypt(messageToServerPlainText.getBytes(),thisSymKey,iv);
 					System.out.printf("CipherText: %s%n",DatatypeConverter.printHexBinary(ciphertext)+ '\n'); //coded message to be sent
 					// send the ciphertext and the IV in a bytebuffer - make a method to make the bytebuffer
-					System.out.println("ZIS ES ZE ZIZE OF ZE IV: " + iv.getIV().length);
 					ByteBuffer ivBuffer = ByteBuffer.wrap(iv.getIV());
 					System.out.println("siiiiiiiiiize of the ciphertext!: " + ciphertext.length);
 					ByteBuffer cipherBuffer = ByteBuffer.allocate(10000);
