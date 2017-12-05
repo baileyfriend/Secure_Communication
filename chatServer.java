@@ -465,14 +465,20 @@ class ChatServerThread extends Thread{
 					//TODO decrypt the message with the symetic key given by the client
 					
 					// Instantiate the connection to the destination - use clientMap to do this
+					SecretKey destSecKey = getFromKeyMap(destinationInt);
 					SocketChannel destinationSocketChannel = getFromClientMap(destinationInt);
+					
 				
 					// Get the actual message to be sent to the destination
 					ByteBuffer msgToSend = getMessage(msgFromClient);
 					System.out.println("Sending message to client: "  + msgToSend);
-
+					byte sendCiphertext[] = encrypt(msgToSend.array(),destSecKey,iv);
+					ByteBuffer cipherBuffer = ByteBuffer.allocate(10000);
+					cipherBuffer = ByteBuffer.wrap(sendCiphertext);
+					destinationSocketChannel.write( ByteBuffer.wrap(iv.getIV()) );
+					destinationSocketChannel.write(cipherBuffer);
 					// Send the message to the destination
-					destinationSocketChannel.write(msgToSend);
+					//destinationSocketChannel.write(msgToSend);
 					System.out.println("**************************************\n");
 			}
 		}

@@ -164,6 +164,34 @@ public static String readBufferIntoString(ByteBuffer buf){
 			return null;
 		}
 	}
+	public byte[] getCorrectSizeCiphertext(ByteBuffer buf){
+		int size = buf.position();
+		buf.flip();
+		byte[] result = new byte[size];
+		for(int i = 0; i<size; i++){
+			result[i] = buf.get(i);
+		}
+		return result;
+	}
+	public byte[] decrypt(byte[] ciphertext, SecretKey secKey, IvParameterSpec iv){
+		try{
+			//ciphertext = removeEmptyFromArray(ciphertext);
+			System.out.println("Symmetric key is: " + Base64.getEncoder().encodeToString( secKey.getEncoded() ) );
+			System.out.printf("CipherText: %s%n",DatatypeConverter.printHexBinary(ciphertext) + '\n'); //coded message to be sent
+			System.out.println("here0, ciphertext is this big: " + ciphertext.length);
+			Cipher c = Cipher.getInstance("AES/CBC/PKCS5Padding");
+			System.out.println("here1");
+			c.init(Cipher.DECRYPT_MODE,secKey,iv);
+			System.out.println("here2");
+			byte[] plaintext = c.doFinal(ciphertext);
+			System.out.println("here3");
+			return plaintext;
+		}catch(Exception e){
+			System.out.println("AES Decrypt Exception " + e);
+			System.exit(1);
+			return null;
+		}
+    }
 
 	// public List<Object> generateIV(){
 	// 	SecureRandom r = new SecureRandom();
@@ -272,10 +300,23 @@ public static String readBufferIntoString(ByteBuffer buf){
 					// System.out.println("\t Who do you want to message (Enter client number or all):");
 					// going back to what they were doing
 					// Recieve Message
-					ByteBuffer messageFromServer = ByteBuffer.allocate(10000);
-					sc.read(messageFromServer);
-					String receivedMessage = readBufferIntoString(messageFromServer);
-					System.out.println(receivedMessage);
+					ByteBuffer buffer = ByteBuffer.allocate(10000);
+					ByteBuffer ivbuf = ByteBuffer.allocate(16);
+					sc.read(ivbuf);
+					sc.read(buffer);
+
+					IvParameterSpec iv = new IvParameterSpec(ivbuf.array());
+					System.out.println("Iv recieved from client: " + iv.toString() + "Of size " + iv.getIV().length );
+					
+					byte ciphertext[] = getCorrectSizeCiphertext(buffer);
+					System.out.println("Length of message: " + ciphertext.length);
+					// Decrypt
+					byte decryptedplaintext[] = decrypt(ciphertext,symKey,iv); //decrypt the symetric key
+					String msgFromClient = new String(decryptedplaintext); // the final message
+					System.out.printf("Got message: %s%n",msgFromClient);
+
+					String receivedMessage = msgFromClient;
+					// System.out.println(receivedMessage);
 					
 					if( receivedMessage.equals(kickUserString) || receivedMessage.contains(kickUserString) || Objects.equals(receivedMessage, kickUserString)){
 							System.out.println("\n YOU ARE BEING KICKED - GOODBYE");
