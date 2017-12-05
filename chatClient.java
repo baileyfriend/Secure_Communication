@@ -21,6 +21,7 @@ import java.net.*;
 import java.nio.*;
 import java.nio.channels.*;
 import java.nio.file.Paths;
+import java.util.List;
 import java.util.Objects;
 import java.lang.Math.*;
 import javax.crypto.*;
@@ -28,16 +29,26 @@ import javax.crypto.spec.*;
 import java.security.*;
 import java.security.spec.*;
 import javax.xml.bind.DatatypeConverter;
+// import java.util.ArrayList;
+import java.util.Base64;
 
 
 class chatClient{
 	public String kickUserString = "123456789GOODBYE987654321";
 	//private PrivateKey privKey; only the server knows what this is 
-    private PublicKey pubKey;
+	private PublicKey pubKey;
+	public SecretKey symKey;
+	
     
     public chatClient(){
     	//privKey=null;
 		pubKey=null;
+		symKey = this.generateAESKey(); //making the Symetric key
+	}
+
+	public SecretKey getSymKey(){
+		System.out.println("Symmetric key is: " + Base64.getEncoder().encodeToString( this.symKey.getEncoded() ) );
+		return this.symKey;
 	}
 	//Code provided in documentation
 	public SecretKey generateAESKey(){
@@ -121,6 +132,39 @@ public static String readBufferIntoString(ByteBuffer buf){
 		return new String(bytes);
 	}
 
+	public static ByteBuffer readKeyIntoBuffer(PublicKey key){
+		return ByteBuffer.wrap(key.getEncoded());
+	}
+
+	public static PublicKey readBufferIntoPubKey(ByteBuffer buf){
+		//byte[] arr = new byte[buf.remaining()];
+		try{
+			byte[] keyArr = buf.array();
+			X509EncodedKeySpec keyspec = new X509EncodedKeySpec(keyArr);
+			KeyFactory rsafactory = KeyFactory.getInstance("RSA");
+			PublicKey puKey = rsafactory.generatePublic(keyspec);
+			return puKey;
+		} catch(Exception e){
+			System.out.println("Got Exception when reading buf into pubkey: " + e);
+			System.exit(1);
+			return null;
+		}
+	}
+
+	public List<Object> generateIV(){
+		SecureRandom r = new SecureRandom();
+		byte ivbytes[] = new byte[16];
+		r.nextBytes(ivbytes);
+		IvParameterSpec iv = new IvParameterSpec(ivbytes);
+		Object[] result = new Object[2];
+		List<Object> arr = new ArrayList <Object>();
+		arr.add(iv);
+		arr.add(ivbytes);
+		// result[0] = iv;
+		// result[1] = ivbytes;
+		return arr;
+	}
+
       public static void main(String args[]){
       	chatClient client = new chatClient();
       	try{
@@ -151,27 +195,38 @@ public static String readBufferIntoString(ByteBuffer buf){
 			ChatClientRecieveThread receiveThread = client.new ChatClientRecieveThread(sc);
 			ChatClientSendThread sendThread = client.new ChatClientSendThread(sc);
 			
+			ByteBuffer publicKey = ByteBuffer.allocate(10000);
+			sc.read(publicKey);
+			System.out.println("Client has the public key."); //TODO fix this sending on the server side
+
+			System.out.println("Sending symmetric key of length: " + client.getSymKey().getEncoded().length );
+			sc.write( ByteBuffer.wrap( client.getSymKey().getEncoded()) );
+
 			//print the starting list
 			ByteBuffer listOfConnectedClientsBuf = ByteBuffer.allocate(1000);
 			sc.read(listOfConnectedClientsBuf);
 			String listOfConnectedClientsStr = readBufferIntoString(listOfConnectedClientsBuf);
 			System.out.println("Here are the clients that are connected to the server: " + listOfConnectedClientsStr);
 			
-			ByteBuffer publicKey = ByteBuffer.allocate(10000);
 			
-			sc.read(publicKey);
 			//TODO get the public key in the correct formate 
 			//PublicKey pubKey = ;
 			//might need to get the key back into the PublicKey format because of tyoe errors?
-			System.out.println("Client has the public key."); //TODO fix this sending on the server side
 			
-			SecretKey s = client.generateAESKey(); //making the Symetric key
 			
-			byte encryptedsecret[] = c.RSAEncrypt(s.getEncoded()); //asymetric encryption of the key
-			SecureRandom r = new SecureRandom();
-			byte ivbytes[] = new byte[16];
-			r.nextBytes(ivbytes); //making a random IV
-			IvParameterSpec iv = new IvParameterSpec(ivbytes);
+			
+			// byte encryptedsecret[] = client.RSAEncrypt(s.getEncoded()); //asymetric encryption of the key
+			// SecureRandom r = new SecureRandom();
+			// byte ivbytes[] = new byte[16];
+			// r.nextBytes(ivbytes); //making a random IV
+			// IvParameterSpec iv = new IvParameterSpec(ivbytes);
+			// String plaintext = "This is a test string to encrypt"; //the message
+			// byte ciphertext[] = client.encrypt(plaintext.getBytes(),s,iv); //symmetric method, (message,key,iv)
+			// System.out.printf("CipherText: %s%n",DatatypeConverter.printHexBinary(ciphertext)); //coded message to be sent
+			
+
+			
+			// IvParameterSpec iv = generateIV();
 			//TODO need to encrypt the symetric key with the public key and TODO send it
 			
 			
@@ -205,12 +260,13 @@ public static String readBufferIntoString(ByteBuffer buf){
 			
 			while(true){
 				try{
-					System.out.println("\t Who do you want to message (Enter client number or all):");
+					// System.out.println("\t Who do you want to message (Enter client number or all):");
 					// going back to what they were doing
 					// Recieve Message
 					ByteBuffer messageFromServer = ByteBuffer.allocate(10000);
 					sc.read(messageFromServer);
 					String receivedMessage = readBufferIntoString(messageFromServer);
+					System.out.println(receivedMessage);
 					
 					if( receivedMessage.equals(kickUserString) || receivedMessage.contains(kickUserString) || Objects.equals(receivedMessage, kickUserString)){
 							System.out.println("\n YOU ARE BEING KICKED - GOODBYE");
@@ -244,7 +300,7 @@ public static String readBufferIntoString(ByteBuffer buf){
 			try{
 				
 				Console cons = System.console();
-				
+				SecretKey thisSymKey = getSymKey();
 				
 				
 				while(true){ // Send/recieve messages loop
@@ -252,9 +308,24 @@ public static String readBufferIntoString(ByteBuffer buf){
 					String destination = cons.readLine("\n Who do you want to message (Enter client number or all): "); 
 					//The other clients who can be messaged have names like 0, 1, 2, 3, etc. 
 					String message  = cons.readLine("\n Message: ");
-					String messageToServer = destination + "|" + message; // Will split the message on "|" on server side
-					ByteBuffer sendBuf = ByteBuffer.wrap(messageToServer.getBytes());
-					sc.write(sendBuf); // send the buffer with the destination and the message
+					String messageToServerPlainText = destination + "|" + message; // Will split the message on "|" on server side
+					
+					// Generate IV
+					SecureRandom r = new SecureRandom();
+					byte ivbytes[] = new byte[16];
+					r.nextBytes(ivbytes);
+					IvParameterSpec iv = new IvParameterSpec(ivbytes);
+					System.out.println("sym key from client: " + thisSymKey.toString());
+					System.out.println("Iv from client: " + iv.toString());
+
+					byte ciphertext[] = encrypt(messageToServerPlainText.getBytes(),thisSymKey,iv);
+
+					// send the ciphertext and the IV in a bytebuffer - make a method to make the bytebuffer
+					ByteBuffer ivBuffer = ByteBuffer.wrap(ivbytes);
+					ByteBuffer cipherBuffer = ByteBuffer.wrap(ciphertext);
+
+					sc.write(ivBuffer); // send the buffer with the destination and the message
+					sc.write(cipherBuffer);
 				}
 			} catch(Exception e){
 					System.out.println("Got error while trying to recieve message: "  + e);

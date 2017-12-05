@@ -37,12 +37,12 @@ import javax.crypto.spec.*;
 import java.security.*;
 import java.security.spec.*;
 import javax.xml.bind.DatatypeConverter;
-
+import java.util.Base64;
 
 
 class chatServer{
     private PrivateKey privKey;
-    private PublicKey pubKey; //server sends the public key to all users
+    public PublicKey pubKey; //server sends the public key to all users
     
     //Code provided in documentation
 	public chatServer(){
@@ -129,7 +129,7 @@ class chatServer{
 			byte[] plaintext = c.doFinal(ciphertext);
 			return plaintext;
 		}catch(Exception e){
-			System.out.println("AES Decrypt Exception");
+			System.out.println("AES Decrypt Exception " + e);
 			System.exit(1);
 			return null;
 		}
@@ -149,6 +149,7 @@ class chatServer{
     } 
     
 	public static ConcurrentHashMap<Integer, SocketChannel> clientMap = new ConcurrentHashMap<Integer, SocketChannel>();
+	public static ConcurrentHashMap<Integer, SecretKey> clientKeysMap = new ConcurrentHashMap<Integer, SecretKey>();
 
 	public static SocketChannel getFromClientMap(int clientNum){ //Gets the socketChannel from the map
 		return clientMap.get(clientNum);
@@ -158,10 +159,52 @@ class chatServer{
 		clientMap.put(clientNum, sc);
 	}
 
+	public static SecretKey getFromKeyMap(int clientNum){ //Gets the socketChannel from the map
+		return clientKeysMap.get(clientNum);
+	} 
+
+	public void putIntoKeystMap(int clientNum, SecretKey secKey){ // put key-value pair into map
+		clientKeysMap.put(clientNum, secKey);
+	}
+
 	public static String readBufferIntoString(ByteBuffer buf){
 		byte[] bytes;
 		bytes = buf.array();
 		return new String(bytes);
+	}
+
+	public static ByteBuffer readKeyIntoBuffer(PublicKey key){
+		return ByteBuffer.wrap(key.getEncoded());
+	}
+
+	public static PublicKey readBufferIntoPubKey(ByteBuffer buf){
+		//byte[] arr = new byte[buf.remaining()];
+		try{
+			byte[] keyArr = buf.array();
+			X509EncodedKeySpec keyspec = new X509EncodedKeySpec(keyArr);
+			KeyFactory rsafactory = KeyFactory.getInstance("RSA");
+			PublicKey puKey = rsafactory.generatePublic(keyspec);
+			return puKey;
+		} catch(Exception e){
+			System.out.println("Got Exception when reading buf into pubkey: " + e);
+			System.exit(1);
+			return null;
+		}
+	}
+
+	public static PrivateKey readBufferIntoPrivKey(ByteBuffer buf){
+		//byte[] arr = new byte[buf.remaining()];
+		try{
+			byte[] keybytes = buf.array();
+			PKCS8EncodedKeySpec keyspec = new PKCS8EncodedKeySpec(keybytes);
+			KeyFactory rsafactory = KeyFactory.getInstance("RSA");
+			PrivateKey privKey = rsafactory.generatePrivate(keyspec);
+			return privKey;
+		} catch(Exception e){
+			System.out.println("Got Exception when reading buf into pubkey: " + e);
+			System.exit(1);
+			return null;
+		}
 	}
 
 	public static int getDestination(String msg){
@@ -228,24 +271,24 @@ class chatServer{
 		server.setPrivateKey("RSApriv.der"); //making the private key using RSA
 		server.setPublicKey("RSApub.der");   //making the public key based on the private key
 		
-		SecretKey s = server.generateAESKey();
-		byte encryptedsecret[] = server.RSAEncrypt(s.getEncoded());
-		SecureRandom r = new SecureRandom();
-		byte ivbytes[] = new byte[16];
-		r.nextBytes(ivbytes);
-		IvParameterSpec iv = new IvParameterSpec(ivbytes);
+		// SecretKey s = server.generateAESKey();
+		// byte encryptedsecret[] = server.RSAEncrypt(s.getEncoded());
+		// SecureRandom r = new SecureRandom();
+		// byte ivbytes[] = new byte[16];
+		// r.nextBytes(ivbytes);
+		// IvParameterSpec iv = new IvParameterSpec(ivbytes);
 		
-		String plaintext = "This is a test string to encrypt";
-		byte ciphertext[] = server.encrypt(plaintext.getBytes(),s,iv);
+		// String plaintext = "This is a test string to encrypt";
+		// byte ciphertext[] = server.encrypt(plaintext.getBytes(),s,iv);
 		
-		System.out.printf("CipherText: %s%n",DatatypeConverter.printHexBinary(ciphertext));
-		byte decryptedsecret[] = server.RSADecrypt(encryptedsecret);
+		// System.out.printf("CipherText: %s%n",DatatypeConverter.printHexBinary(ciphertext));
+		// byte decryptedsecret[] = server.RSADecrypt(encryptedsecret);
 		
-		SecretKey ds = new SecretKeySpec(decryptedsecret,"AES");
-		byte decryptedplaintext[] = server.decrypt(ciphertext,ds,iv);
+		// SecretKey ds = new SecretKeySpec(decryptedsecret,"AES");
+		// byte decryptedplaintext[] = server.decrypt(ciphertext,ds,iv);
 		
-		String dpt = new String(decryptedplaintext);
-		System.out.printf("PlainText: %s%n",dpt);
+		// String dpt = new String(decryptedplaintext);
+		// System.out.printf("PlainText: %s%n",dpt);
 		
 		
 		try{
@@ -260,7 +303,7 @@ class chatServer{
 			   		SocketChannel sc = c.accept(); // get new channel for each new client that connects to our server
 					server.putIntoClientMap(clientNum, sc); //number of the client mapped with the socket channel.
 					System.out.println("Put client " + clientNum + " into map " + clientMap.toString()); //the toString does not work?
-					ChatServerThread t = server.new ChatServerThread(sc);
+					ChatServerThread t = server.new ChatServerThread(clientNum, sc);
 					//TODO: a list of threads - soccet channels to keep track of clients
 					//TODO: print a list of available clients
 					clientNum++;
@@ -276,32 +319,63 @@ class chatServer{
 
 class ChatServerThread extends Thread{
 	SocketChannel sourceSocketChannel;
-	ChatServerThread(SocketChannel channel){
-	    sourceSocketChannel = channel;
+	int clientNum;
+	ChatServerThread(int clientNum, SocketChannel channel){
+		this.clientNum = clientNum;
+		sourceSocketChannel = channel;
 	}
 	public void run(){ //acts as the main method for the new thread
 	    try{
 			System.out.println("A client has connected");
+			ByteBuffer pubKeyBuf = readKeyIntoBuffer(pubKey);
+			sourceSocketChannel.write(pubKeyBuf);
+			System.out.println("Sent public key to client");
+
+			ByteBuffer symKeyBuf = ByteBuffer.allocate(16);
+			System.out.println("Waiting to recieve symmetric key from client");
+			sourceSocketChannel.read(symKeyBuf);
+			System.out.println("recieved symmetric key from client");
 
 			//Send the list of the connected clients whenever a new client connects
 			ByteBuffer listOfConnectedClients = getListOfConnectedClients();
 			sourceSocketChannel.write( listOfConnectedClients );
 			System.out.println("Sent client list");
+
 			
-			byte [] pkey = pubKey.getEncoded();
+
+			//SecretKey symKey = readBufferIntoPrivKey(symKeyBuf);
+			SecretKey symKey = new SecretKeySpec(symKeyBuf.array(), 0, symKeyBuf.array().length, "AES");
+			System.out.println("Symmetric key is: " + Base64.getEncoder().encodeToString( symKey.getEncoded() ) );
+			putIntoKeystMap(clientNum, symKey);
+			
+			//byte [] pkey = pubKey.getEncoded();
 			//TODO how to turn the public key into a byte buffer??
-			ByteBuffer privateKeyy = pubKey.getBytes();
-			sourceSocketChannel.write(privateKeyy);
-			System.out.println("Sent public key");
+			// ByteBuffer privateKeyBuf = readKeyIntoBuffer( pubKey );
+			// sourceSocketChannel.write(privateKeyBuf);
+			// System.out.println("Sent public key");
 			
-			ByteBuffer encryptedKey = ByteBuffer.allocate(10000);
+			//ByteBuffer encryptedKey = ByteBuffer.allocate(10000);
 			//TODO decrypt this buffer with the private key to get the secret/symetric key
 			
 			System.out.println("___________________");
 			while(true){
 				// Read message from client
+				ByteBuffer ivbytes = ByteBuffer.allocate(16);
+				//ByteBuffer buffArr = ByteBuffer.allocate(10000);
+				sourceSocketChannel.read(ivbytes);
+				IvParameterSpec iv = new IvParameterSpec(ivbytes.array());
+				System.out.println("Iv recieved from client: " + iv.toString());
+
 				ByteBuffer buffer = ByteBuffer.allocate(10000);
 				sourceSocketChannel.read(buffer);
+				byte ciphertext[] = buffer.array();
+				// Decrypt
+				// byte decryptedsecret[] = RSADecrypt(encryptedsecret); //decrypt the asymetric key
+				SecretKey ds = getFromKeyMap(clientNum);
+				byte decryptedplaintext[] = decrypt(ciphertext,ds,iv); //decrypt the symetric key
+				String dpt = new String(decryptedplaintext); // the final message
+				System.out.printf("PlainText: %s%n",dpt);
+
 				String msgFromClient = readBufferIntoString(buffer);
 				System.out.println("Got message from client: " + msgFromClient);
 

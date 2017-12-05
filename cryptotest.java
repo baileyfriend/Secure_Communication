@@ -10,32 +10,34 @@ class cryptotest{
     private PublicKey pubKey;
     
     public static void main(String args[]){
-		cryptotest c = new cryptotest();
-		c.setPrivateKey("RSApriv.der");       //private key
+			cryptotest c = new cryptotest();
+			c.setPrivateKey("RSApriv.der");       //private key
+			
+			//client side
+			c.setPublicKey("RSApub.der");         //public key
+			SecretKey s = c.generateAESKey();     //symmetic key?
+			byte encryptedsecret[] = c.RSAEncrypt(s.getEncoded()); //asymetric
+			SecureRandom r = new SecureRandom();
+			byte ivbytes[] = new byte[16];
+			r.nextBytes(ivbytes);
+			IvParameterSpec iv = new IvParameterSpec(ivbytes);
+			String plaintext = "This is a test string to encrypt"; //the message
+			byte ciphertext[] = c.encrypt(plaintext.getBytes(),s,iv); //symmetric method, (message,key,iv)
+			System.out.printf("CipherText: %s%n",DatatypeConverter.printHexBinary(ciphertext)); //coded message to be sent
+			
+			//server side
+			byte decryptedsecret[] = c.RSADecrypt(encryptedsecret); //decrypt the asymetric key
+			SecretKey ds = new SecretKeySpec(decryptedsecret,"AES");
+			byte decryptedplaintext[] = c.decrypt(ciphertext,ds,iv); //decrypt the symetric key
+			String dpt = new String(decryptedplaintext); // the final message
+			System.out.printf("PlainText: %s%n",dpt);
+		}
 		
-		//client side
-		c.setPublicKey("RSApub.der");         //public key
-		SecretKey s = c.generateAESKey();     //symmetic key?
-		byte encryptedsecret[] = c.RSAEncrypt(s.getEncoded()); //asymetric
-		SecureRandom r = new SecureRandom();
-		byte ivbytes[] = new byte[16];
-		r.nextBytes(ivbytes);
-		IvParameterSpec iv = new IvParameterSpec(ivbytes);
-		String plaintext = "This is a test string to encrypt"; //the message
-		byte ciphertext[] = c.encrypt(plaintext.getBytes(),s,iv); //symmetric method, (message,key,iv)
-		System.out.printf("CipherText: %s%n",DatatypeConverter.printHexBinary(ciphertext)); //coded message to be sent
-		
-		//server side
-		byte decryptedsecret[] = c.RSADecrypt(encryptedsecret); //decrypt the asymetric key
-		SecretKey ds = new SecretKeySpec(decryptedsecret,"AES");
-		byte decryptedplaintext[] = c.decrypt(ciphertext,ds,iv); //decrypt the symetric key
-		String dpt = new String(decryptedplaintext); // the final message
-		System.out.printf("PlainText: %s%n",dpt);
-    }
     public cryptotest(){
 		privKey=null;
 		pubKey=null;
-    }
+		}
+		
     public byte[] encrypt(byte[] plaintext, SecretKey secKey, IvParameterSpec iv){
 		try{
 			Cipher c = Cipher.getInstance("AES/CBC/PKCS5Padding");
